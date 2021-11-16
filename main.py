@@ -9,7 +9,6 @@ from shutil import copy
 from dfileTK import *
 from CNN_TK import *
 import numpy as np
-import traceback
 from keras.models import load_model
 from keras_sequential_ascii import keras2ascii
 
