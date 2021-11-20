@@ -1,18 +1,25 @@
 # CNN_TK.py
 # Convolutional  neural network tool kit
 #
-# Library with support functions for CNN training and testing.
+# Library with support functions for Apnoe detection wiht CNN
 #
-# SEE ALSO:
-#           CNN_2D.py
-#
-# Author:   Bc. Martin Barton
+# Author:   Ing. Martin Barton
 # Contact:  ma.barton@seznam.cz
-# Date:     2020-18-05
+# Date:     2021
 
-from keras import backend as K
-import numpy as np
 import sys
+import scipy
+import numpy as np
+import numpy as np
+import scipy.fftpack
+import scipy.signal as sig
+
+from CNN_TK import *
+from shutil import copy
+from keras import backend as K
+from window_slider import Slider
+from keras.models import load_model
+from keras_sequential_ascii import keras2ascii
 
 #-------------------------------------------------------------------------------------------------------------
 # Metrics
@@ -30,7 +37,6 @@ import sys
 #           Keras documentation
 #
 # Author:  Past Keras verions
-
 def sensitivity(y_true, y_pred):
     true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
     possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
@@ -54,232 +60,134 @@ def f1_score(y_true, y_pred):
 
 def accuracy(y_true, y_pred):
     return K.mean(K.equal(y_true, K.round(y_pred)), axis=-1)
-
 #-------------------------------------------------------------------------------------------------------------
 
-def TVT_spitl(X, y, subj, chan, seed=False):
-    # TVT_split
-    # Split imput data into training/validation/testing datasets
-    # Description
-    #
-    # INPUTS:
-    # 	        X =     matrix with 2 signals (flow and spo2)
-    #           y =     labels in matrix
-    #           subj =  information about subjects (generated from Bigdata_munti.py)
-    #           chan =  "flow" / "spo2" / "origin"
-    #           seed =  If seed == False, than data are randomly selected, with given seed selection is fixed.
-    #
-    # OUTPUTS:
-    #    	    X_train, X_test, X_valid = signal matrix as imported
-    #           y_train, y_test, y_valid = vecrot of lables prior to chan variable
-    #
-    # BRIEF EXPLANATION: This function will split data to 3 seperate datasets prior to whole subjects. Train-Valid-test
-    #                    in percentage 60%/15%/15%. Imput is taken from flow and spo2 but outpus labeling is only from one
-    #                    of them based on variable chan.
-    #
-    # SEE ALSO:
-    #           Bigdata_multi.py
-    #
-    # Author:   Bc. Martin Barton
-    # Contact:  ma.barton@seznam.cz
-    # Date:     2020-18-05
+# Detection
+# Function that handles CNN detection on given data
+# Description
+#
+# INPUTS:
+# 	        data_array  = 2D numpy array of data (1. row flow, 2. row SpO2)
+#           event_name  = "flow", "spo2" depends on what detection is used
+#           model_h5    = ML keras model in h5 file
+#           fsamp       = sampling frequenci (only supports 250)
+#           treshold    = deteciont desizion treshold
+#
+# OUTPUTS:
+#    	    Returns array with values 0 (event not present in segment), 1 (event is present in segment)
+#           To corredponding segments. 
+def detection(data_array, event_name, model_h5, fsamp, threshold=0.5):
 
-    # Whole subjects to datasets
-    X_train = []
-    X_valid = []
-    X_test = []
-    y_train = []
-    y_valid = []
-    y_test = []
+    if event_name != "flow" and event_name != "spo2":
+        print("Wrong event name !")
+        sys.exit()
 
-    train_s = 0
-    test_s = 0
-    valid_s = 0
+    # Preprocesing flow data
+    data_seg_f = preprocess_slide(data_array, fsamp, event_name)
 
+    # Preprocesing SpO2 data
+    data_seg_s = preprocess_slide(data_array, fsamp, event_name)
 
-    destination = 0
-    index_count = 0
+    spo2_delay = 25
 
-    for x in subj:
-        if x == 1:
-            if seed != False:
-                np.random.seed(seed)
-            destination = np.random.randint(0,3)
+    # Shape input data
+    G = np.shape(data_seg_f)[0] - spo2_delay
+    data_seg_f  = data_seg_f[0:G, :]
+    data_seg_s  = data_seg_s[spo2_delay - 1:-1, :]
 
-            if destination == 0 or destination == 2:
-                if len(y_test) > len(y_valid):
-                    destination = 2
-                else:
-                    destination = 0
+    # Connect flow and spo2
+    X_data = np.stack((data_seg_f, data_seg_s), axis=1)
 
-            if len(y_test)+len(y_valid) > int((len(y_train)+len(y_test)+len(y_valid))/3):
-                destination = 1
+    # Dependencies for kears model
+    dependencies = {'sensitivity': sensitivity, 'specificity': specificity, 'f1_score'   : f1_score}
 
-            # Watch how many subjects in sets
-            if destination == 1:
-                train_s += 1
-            elif destination == 2:
-                valid_s += 1
-            elif destination == 0:
-                test_s += 1
+    # Loading of keras model
+    model = load_model(model_h5, custom_objects=dependencies)
+    keras2ascii(model)
+    print("Nacten Keras model")
 
-        if destination == 1:
-            X_train.append(X[index_count])
-            y_train.append(y[index_count,:,0])
-        elif destination == 0:
-            X_test.append(X[index_count])
-            y_test.append(y[index_count,:,0])
-        elif destination == 2:
-            X_valid.append(X[index_count])
-            y_valid.append(y[index_count,:,0])
+    print("Dimension expand")
+    X_data = np.expand_dims(X_data, 3)
 
-        index_count +=1
+    print("Zacatek detekce apnoe.")
+    y_data = model.predict(X_data, 1000, verbose=1)
 
-    X_train = np.array(X_train)
-    X_test = np.array(X_test)
-    X_valid = np.array(X_valid)
-    y_train = np.array(y_train)
-    y_test = np.array(y_test)
-    y_valid = np.array(y_valid)
-
-    if chan != "origin":
-
-        if chan == "flow":
-            s = 0
-        elif chan == "spo2":
-            s = 1
+    # Treshold decide
+    for x in range(np.shape(y_data)[0]):
+        if y_data[x, 0] < threshold:
+            y_data[x, 0] = 0
         else:
-            sys.exit("Wrong channel name")
+            y_data[x, 0] = 1
 
-        # Only s labels are interested
-        y_train = y_train[:,s]
-        y_test = y_test[:,s]
-        y_valid = y_valid[:,s]
+    return y_data
+#-------------------------------------------------------------------------------------------------------------
 
-    print("Data shapes:")
-    print("X_train:\t" + str(X_train.shape))
-    print("y_train:\t" + str(y_train.shape))
-    print("X_valid:\t" + str(X_valid.shape))
-    print("y_valid:\t" + str(y_valid.shape))
-    print("X_test: \t" + str(X_test.shape))
-    print("y_test: \t" + str(y_test.shape))
+# Preprocess_slide
+# Function that preprocces data
+# Preprocess consist of > downsampling, filtration, segmentation
+#
+# INPUTS:
+# 	        data_array  = 2D numpy array of data (1. row flow, 2. row SpO2)
+#           event_name  = "flow", "spo2" depends on what detection is used
+#           fsamp       = sampling frequenci (only supports 250)
+#
+# OUTPUTS:
+#    	    Returns array with preproccesed, segmented data
+def preprocess_slide(data_array, fsamp, event_name):
 
-    print("Train subjs:\t" + str(train_s))
-    print("Valid subjs:\t" + str(valid_s))
-    print("Test subjs:\t" + str(test_s))
+    overlap = 9                         # How much sec of signal will overlap
+    seg_len_sec = 10                    # Segment length in seconds
 
-    return X_train, X_test, X_valid, y_train, y_test, y_valid
+    # Data loading
+    data = np.load(data_array)
+    print(data.shape)
 
+    if event_name == "flow":
+        data_orig = data[0,:]           # One channel loadnig (flow)
+    elif event_name == "spo2":
+        data_orig = data[1,:]           # One channel loadnig (SpO2)
 
-def The_answer(real, predict, text, treshold=False):
-    # The answer
-    # Calculate basic statistics on given labels
-    # Description
-    #
-    # INPUTS:
-    # 	        real    = vector with real lables (0/1 int)
-    #           predict = vector with predicted labels
-    #           text    = simple string whitch will be printed
-    #           treshold= threshold for pozitives or negatives, if False, than expected predict to by (0/1)
-    #
-    # OUTPUTS:
-    #    	   sensitivity and specificity
-    #
-    # BRIEF EXPLANATION:    This function will calculate statistics based on prediction with or without threshold. Rest of
-    #                       infomration is printed on screen. It works with 2D or 1D inputs.
-    #
-    # SEE ALSO:
-    #           CNN_2D.py
-    #
-    # Author:   Bc. Martin Barton
-    # Contact:  ma.barton@seznam.cz
-    # Date:     2020-18-05
+    seg_len = fsamp * seg_len_sec       # Segment length in samples
+    bucket_size = seg_len               # Size of segment
+    overlap_count = overlap * fsamp     # Overlap
 
+    # Podvzorkovani
+    data_down = sig.decimate(data_orig, 5, zero_phase=True)
+    fsamp_new = int(fsamp/5)
 
-    try:
-        # For 2D
-        if np.shape(real)[1] == 2:
-            if treshold != False:
-                for x in range(np.shape(predict)[0]):
-                    if predict[x, 0] < treshold:
-                        predict[x, 0] = 0
-                    else:
-                        predict[x, 0] = 1
+    # New settings after downsamplig
+    seg_len = fsamp_new * seg_len_sec    # Segment length in samples
+    bucket_size = seg_len                # Size of segment
+    overlap_count = overlap * fsamp_new  # Overlap
 
-                    if predict[x, 1] < treshold:
-                        predict[x, 1] = 0
-                    else:
-                        predict[x, 1] = 1
+    if event_name == "flow":
+        # Filtration
+        sos = sig.butter(10, 5 / (fsamp_new / 2), btype='lowpass', output='sos')
+        data_filtred = scipy.signal.sosfilt(sos, data_down)
+    
+    elif event_name == "spo2":
+        # Filtration
+        sos = sig.butter(2, 0.06 / (fsamp_new / 2), btype='lowpass', output='sos')
+        data_filtred = scipy.signal.sosfilt(sos, data_down)
 
-            TP = 0
-            TN = 0
-            FP = 0
-            FN = 0
+        # Multiplication
+        data_filtred = np.multiply(np.array(data_filtred), 10)
 
-            for c in range(len(real)):
-                if real[c,0] == 1 and predict[c,0] == 1:
-                    TP += 1
-                elif real[c,0] == 0 and predict[c,0] == 0:
-                    TN += 1
-                elif real[c,0] == 0 and predict[c,0] == 1:
-                    FP += 1
-                elif real[c,0] == 1 and predict[c,0] == 0:
-                    FN += 1
+    # Segmentation sliging window
+    slider = Slider(bucket_size, overlap_count)
+    slider.fit(data_filtred)
+    print("Segmentation")
+    data = []
 
-            for c in range(len(real)):
-                if real[c,1] == 1 and predict[c,1] == 1:
-                    TP += 1
-                elif real[c,1] == 0 and predict[c,1] == 0:
-                    TN += 1
-                elif real[c,1] == 0 and predict[c,1] == 1:
-                    FP += 1
-                elif real[c,1] == 1 and predict[c,1] == 0:
-                    FN += 1
+    while True:
+        window_data = slider.slide()
+        if len(window_data) < bucket_size:
+            break
+        data.append(window_data)
+        if slider.reached_end_of_list(): break
 
-            print("\n" + str(text))
-            print("TP: " + str(TP))
-            print("TN: " + str(TN))
-            print("FP: " + str(FP))
-            print("FN: " + str(FN))
-            print("Accuracy:\t" + str(round(((TP + TN) / (TP + TN + FP + FN + K.epsilon())) * 100, 2)) + " %")
-            print("F1-score:\t" + str(round(((2 * TP) / (2 * TP + FN + FP + K.epsilon())) * 100, 2)) + " %")
-            print("Sensitivity:\t" + str(round(((TP) / (TP + FN + K.epsilon())) * 100, 2)) + " %")
-            print("Specificity:\t" + str(round(((TN) / (TN + FP + K.epsilon())) * 100, 2)) + " %")
+    # To numpy array
+    data_seg = np.array(data)
 
-            return (round(((TP) / (TP + FN + K.epsilon())) * 100, 2)), (round(((TN) / (TN + FP + K.epsilon())) * 100, 2))
-    except:
-            # For 1D
-            if treshold != False:
-                for x in range(np.shape(predict)[0]):
-                    if predict[x, 0] < treshold:
-                        predict[x, 0] = 0
-                    else:
-                        predict[x, 0] = 1
-
-            TP = 0
-            TN = 0
-            FP = 0
-            FN = 0
-            P = 0
-            for c in range(len(real)):
-                if real[c] == 1 and predict[c] == 1:
-                    TP += 1
-                elif real[c] == 0 and predict[c] == 0:
-                    TN += 1
-                elif real[c] == 0 and predict[c] == 1:
-                    FP += 1
-                elif real[c] == 1 and predict[c] == 0:
-                    FN += 1
-
-            print("\n" + str(text))
-            print("TP: " + str(TP))
-            print("TN: " + str(TN))
-            print("FP: " + str(FP))
-            print("FN: " + str(FN))
-            print("Accuracy:\t" + str(round(((TP + TN) / (TP + TN + FP + FN + K.epsilon())) * 100, 2)) + " %")
-            print("F1-score:\t" + str(round(((2 * TP) / (2 * TP + FN + FP + K.epsilon())) * 100, 2)) + " %")
-            print("Sensitivity:\t" + str(round(((TP) / (TP + FN + K.epsilon())) * 100, 2)) + " %")
-            print("Specificity:\t" + str(round(((TN) / (TN + FP + K.epsilon())) * 100, 2)) + " %")
-
-            return (round(((TP) / (TP + FN + K.epsilon())) * 100, 2)), (round(((TN) / (TN + FP + K.epsilon())) * 100, 2))
-
+    return data_seg
+#-------------------------------------------------------------------------------------------------------------
