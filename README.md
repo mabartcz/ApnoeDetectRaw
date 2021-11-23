@@ -1,6 +1,11 @@
 # ApnoeDetectRaw
 
-Apnoe Detect Raw is Python 3 script derivated from ApnoeDetect to be used by general public.
+![](https://img.shields.io/github/stars/mabartcz/ApnoeDetectRaw) 
+![](https://img.shields.io/github/forks/mabartcz/ApnoeDetectRaw) 
+![](https://img.shields.io/github/issues/mabartcz/ApnoeDetectRaw) 
+
+
+Apnoe Detect Raw is Python 3 script derivated from [ApnoeDetect](https://github.com/mabartcz/ApnoeDetect) to be used by general public.
 Difference with ApnoeDetecr are:
 	- input data are simple array (insted private file format),
 	- there is no GUI (simple script edit).
