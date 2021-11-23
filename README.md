@@ -13,7 +13,7 @@ Difference with ApnoeDetecr are:
 The script purpouse is to detect sleep apnea and SpO2 desaturations from PSG signal. The used signals are airflow and blood oxygen saturation (SpO2). The detection is made by trained neural network.
 
 **Data flow diagram:**
-![enter image description here](https://github.com/mabartcz/ApnoeDetectRaw/blob/master/diagram.png?raw=true)
+![enter image description here](https://github.com/mabartcz/ApnoeDetectRaw/blob/master/Diagam.png?raw=true)
 	
 **Input:**
 Raw data in numpy array. Two rows. First row flow signal, Second row SpO2 signal.
