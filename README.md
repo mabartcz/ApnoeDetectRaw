@@ -6,6 +6,8 @@
 
 **Apnoe Detect Raw** is Python 3 script derivated from [ApnoeDetect](https://github.com/mabartcz/ApnoeDetect) to be used by general public.
 
+This experimental program can detect decrees in airflow and decrees in oxygen the main features of sleep apnea. The main advantage is that, detection algorithm is made by convolution neural network and this network was learned from previously scored data by the doctors from NUDZ.
+
 Difference with ApnoeDetecr are:
  - input data are simple array (insted private file format), 
  - there is no GUI (simple script edit).
@@ -13,6 +15,7 @@ Difference with ApnoeDetecr are:
 The script purpouse is to detect sleep apnea and SpO2 desaturations from PSG signal. The used signals are airflow and blood oxygen saturation (SpO2). The detection is made by trained neural network.
 
 **Data flow diagram:**
+
 ![enter image description here](https://github.com/mabartcz/ApnoeDetectRaw/blob/master/Diagam.png?raw=true)
 	
 **Input:**
