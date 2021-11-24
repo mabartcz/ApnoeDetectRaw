@@ -150,7 +150,7 @@ def preprocess_slide(data_array, fsamp, event_name):
     bucket_size = seg_len               # Size of segment
     overlap_count = overlap * fsamp     # Overlap
 
-    # Podvzorkovani
+    # Downsampling
     data_down = sig.decimate(data_orig, 5, zero_phase=True)
     fsamp_new = int(fsamp/5)
 
