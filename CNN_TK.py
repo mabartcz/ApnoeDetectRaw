@@ -15,7 +15,6 @@ import scipy.fftpack
 import scipy.signal as sig
 
 from CNN_TK import *
-from shutil import copy
 from keras import backend as K
 from window_slider import Slider
 from keras.models import load_model

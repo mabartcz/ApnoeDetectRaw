@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # main.py
 # ML Apnoe and desaturation detection
 #
@@ -6,6 +8,7 @@
 # Date:     2021
 
 from CNN_TK import *
+import sys, getopt
 
 # main
 # Function that starts detection
@@ -33,5 +36,16 @@ def main(file_path):
     print("Apnoe (C+O):\t" + str(np.sum(AP_total)))
     print("Desaturations:\t" + str(np.sum(SP_total)))
 
-main("data_short.npy")
+# Arguments and terminal lunch handler
+def args(argv):
+
+    if sys.argv[1] == '-h':
+        print("\nTo run detection insert nupmy array file path as argument (e.g.):")
+        print('python3 main.py array.npy\n')
+        sys.exit()
+    else:
+        main(sys.argv[1])
+
+if __name__ == "__main__":
+   args(sys.argv[1])
 
