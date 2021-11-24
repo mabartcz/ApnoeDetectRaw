@@ -16,7 +16,7 @@ The script purpouse is to detect sleep apnea and SpO2 desaturations from PSG sig
 
 **Data flow diagram:**
 
-![enter image description here](https://github.com/mabartcz/ApnoeDetectRaw/blob/master/Diagam.png?raw=true)
+![Data flow](/Diagam.png)
 	
 **Input:**
 Raw data in numpy array. Two rows. First row flow signal, Second row SpO2 signal.
@@ -24,11 +24,17 @@ Raw data in numpy array. Two rows. First row flow signal, Second row SpO2 signal
 **Output:**
 1D array with predicted values about signal segment (1 = event is present, 0 = no event detected).
 
-**Requiraments**
+**Requiraments:**
  - SciPy 1.7.1
  - NumPy 1.21.2
  - Keras 2.6.0
  - Keras_sequential_ascii 0.1.1
 > (all available from pip: <https://pypi.org/>)
+
+**Usage:**
+Run main.py file from terminal with path to your raw numpy array file e.g.:
+```
+$python3 main.py data.npy
+```
 
 **Publications:**
